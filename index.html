@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gabriel Goldner — Técnico em Informática</title>
+  <meta name="description" content="Portfólio de Gabriel Goldner — suporte técnico, redes, manutenção, desenvolvimento web e design.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============ tokens ============ */
+    :root {
+      --bg: #05060c;
+      --bg-2: #0a0d18;
+      --ink: #eef1ff;
+      --body: #a9b4d4;
+      --dim: #66719b;
+      --cyan: #3ee6ff;
+      --violet: #8b7bff;
+      --line: rgba(140, 160, 220, 0.14);
+      --z-hud: 40;
+      --z-nav: 50;
+      --z-cursor: 90;
+      --z-loader: 100;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scrollbar-width: thin; scrollbar-color: #232a44 var(--bg); }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: #232a44; border-radius: 4px; }
+    ::selection { background: var(--cyan); color: #04121a; }
+
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--bg);
+      color: var(--body);
+      overflow-x: hidden;
+      line-height: 1.7;
+    }
+    a { color: inherit; }
+
+    /* ============ preloader ============ */
+    #loader {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      z-index: var(--z-loader);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .loader-box {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--dim);
+      width: min(420px, 80vw);
+    }
+    .loader-line { opacity: 0; }
+    .loader-line .ok { color: var(--cyan); }
+    .loader-pct {
+      margin-top: 1.2rem;
+      font-size: 2.6rem;
+      font-weight: 700;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .loader-bar {
+      margin-top: 0.6rem;
+      height: 1px;
+      background: var(--line);
+      position: relative;
+      overflow: hidden;
+    }
+    .loader-bar i {
+      position: absolute; inset: 0;
+      background: var(--cyan);
+      transform: scaleX(0);
+      transform-origin: left;
+      display: block;
+    }
+
+    /* ============ canvas ============ */
+    #scene {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ============ grain + vignette ============ */
+    .veil {
+      position: fixed; inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background: radial-gradient(ellipse 120% 90% at 50% 40%, transparent 55%, rgba(2, 3, 8, 0.55) 100%);
+    }
+
+    /* ============ HUD frame ============ */
+    .hud {
+      position: fixed; inset: 0;
+      z-index: var(--z-hud);
+      pointer-events: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--dim);
+      letter-spacing: 0.08em;
+    }
+    .hud-corner {
+      position: absolute;
+      width: 18px; height: 18px;
+      border: 1px solid rgba(140, 160, 220, 0.35);
+    }
+    .hud-corner.tl { top: 14px; left: 14px; border-right: 0; border-bottom: 0; }
+    .hud-corner.tr { top: 14px; right: 14px; border-left: 0; border-bottom: 0; }
+    .hud-corner.bl { bottom: 14px; left: 14px; border-right: 0; border-top: 0; }
+    .hud-corner.br { bottom: 14px; right: 14px; border-left: 0; border-top: 0; }
+    .hud-readout {
+      position: absolute;
+      bottom: 20px; left: 44px;
+      display: flex;
+      gap: 1.5rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .hud-readout b { color: var(--cyan); font-weight: 500; }
+    .hud-sig {
+      position: absolute;
+      bottom: 20px; right: 44px;
+    }
+    @media (max-width: 768px) {
+      .hud-readout { left: 40px; gap: 1rem; }
+      .hud-sig { display: none; }
+    }
+
+    /* ============ progress rail ============ */
+    .rail {
+      position: fixed;
+      right: 26px; top: 50%;
+      transform: translateY(-50%);
+      z-index: var(--z-nav);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .rail a {
+      display: block;
+      width: 22px; height: 2px;
+      background: rgba(140, 160, 220, 0.3);
+      transition: background 0.3s, width 0.3s, box-shadow 0.3s;
+    }
+    .rail a.on {
+      width: 34px;
+      background: var(--cyan);
+      box-shadow: 0 0 12px rgba(62, 230, 255, 0.7);
+    }
+    @media (max-width: 768px) { .rail { display: none; } }
+
+    /* ============ top nav ============ */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: var(--z-nav);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.4rem 2.6rem;
+    }
+    .nav-logo {
+      font-family: 'Archivo Black', sans-serif;
+      font-weight: 400;
+      font-size: 1rem;
+      color: var(--ink);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+    }
+    .nav-logo em { color: var(--cyan); font-style: normal; }
+    .nav-links {
+      display: flex;
+      gap: 1.8rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: lowercase;
+    }
+    .nav-links a {
+      color: var(--dim);
+      text-decoration: none;
+      transition: color 0.25s;
+      position: relative;
+    }
+    .nav-links a::before { content: '/'; color: var(--violet); margin-right: 2px; }
+    .nav-links a:hover, .nav-links a:focus-visible { color: var(--ink); }
+    @media (max-width: 768px) {
+      .nav { padding: 1.1rem 1.4rem; }
+      .nav-links { display: none; }
+    }
+
+    /* ============ layout ============ */
+    .content { position: relative; z-index: 3; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 0 clamp(1.4rem, 5vw, 4rem); }
+
+    /* sys-tag: sistema de rótulo HUD da marca */
+    .sys {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      color: var(--cyan);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1.4rem;
+    }
+    .sys::after {
+      content: '';
+      width: 7px; height: 13px;
+      background: var(--cyan);
+      animation: blink 1.1s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    h2 {
+      font-family: 'Archivo Black', sans-serif;
+      font-weight: 400;
+      font-size: clamp(1.9rem, 5vw, 3.4rem);
+      line-height: 1.12;
+      color: var(--ink);
+      text-wrap: balance;
+      margin-bottom: clamp(2rem, 5vh, 3.5rem);
+    }
+
+    /* ============ hero ============ */
+    .hero {
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      padding-top: 4rem;
+      padding-bottom: 9.5rem; /* espaço reservado pro marquee absoluto */
+    }
+    .hero-name {
+      font-family: 'Archivo Black', sans-serif;
+      font-weight: 400;
+      font-size: clamp(2.4rem, 8.5vw, 5.8rem);
+      line-height: 1.05;
+      letter-spacing: 0.01em;
+      color: var(--ink);
+      text-transform: uppercase;
+    }
+    .hero-name .row { display: block; overflow: hidden; }
+    .hero-name .row:last-child {
+      color: var(--cyan);
+      text-shadow: 0 0 32px rgba(62, 230, 255, 0.35);
+    }
+    .hero-name .ch { display: inline-block; }
+    .hero-role {
+      margin-top: 1.6rem;
+      max-width: 34ch;
+      font-size: clamp(1rem, 1.6vw, 1.2rem);
+      font-weight: 300;
+      color: var(--body);
+    }
+    .hero-role strong { color: var(--ink); font-weight: 600; }
+    .hero-cta {
+      margin-top: 2.4rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.8rem;
+      width: fit-content;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      color: var(--ink);
+      text-decoration: none;
+      border: 1px solid rgba(62, 230, 255, 0.45);
+      padding: 0.85rem 1.6rem;
+      position: relative;
+      overflow: hidden;
+      transition: color 0.3s;
+    }
+    .hero-cta i {
+      position: absolute; inset: 0;
+      background: var(--cyan);
+      transform: translateX(-101%);
+      transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: -1;
+    }
+    .hero-cta:hover, .hero-cta:focus-visible { color: #04121a; }
+    .hero-cta:hover i, .hero-cta:focus-visible i { transform: translateX(0); }
+
+    /* marquee */
+    .marquee {
+      position: absolute;
+      bottom: 3.4rem; left: 0; right: 0;
+      overflow: hidden;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 0.8rem 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--dim);
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    }
+    .marquee-track {
+      display: flex;
+      gap: 3rem;
+      width: max-content;
+      animation: slide 26s linear infinite;
+    }
+    .marquee-track span { white-space: nowrap; }
+    .marquee-track b { color: var(--violet); font-weight: 400; margin-right: 3rem; }
+    @keyframes slide { to { transform: translateX(-50%); } }
+
+    /* ============ sections ============ */
+    section[data-panel] {
+      position: relative;
+      padding: clamp(6rem, 14vh, 10rem) 0;
+    }
+
+    /* -- sobre -- */
+    .statement {
+      font-family: 'Sora', sans-serif;
+      font-weight: 400;
+      font-size: clamp(1.35rem, 3.1vw, 2.3rem);
+      line-height: 1.55;
+      color: var(--ink);
+      max-width: 24ch;
+      text-wrap: pretty;
+    }
+    .statement .w { opacity: 0.18; }
+    .statement em { font-style: normal; color: var(--cyan); }
+    .about-meta {
+      margin-top: 3.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2.5rem 4rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .meta-item .n {
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .meta-item .n s { text-decoration: none; color: var(--violet); }
+    .meta-item .l {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      color: var(--dim);
+      text-transform: uppercase;
+      margin-top: 0.2rem;
+    }
+
+    /* -- experiência (horizontal) -- */
+    #experiencia { overflow: hidden; }
+    .xp-head { margin-bottom: 0; }
+    .xp-stage {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1.2rem;
+    }
+    .xp-track {
+      display: flex;
+      gap: clamp(1.5rem, 4vw, 3rem);
+      padding: 0 clamp(1.4rem, 5vw, 4rem);
+      width: max-content;
+    }
+    .xp-card {
+      width: min(78vw, 620px);
+      flex-shrink: 0;
+      border: 1px solid var(--line);
+      background: rgba(10, 13, 24, 0.72);
+      backdrop-filter: blur(6px);
+      padding: clamp(1.6rem, 3vw, 2.6rem);
+      position: relative;
+    }
+    .xp-card::before {
+      content: attr(data-idx);
+      position: absolute;
+      top: 1.2rem; right: 1.4rem;
+      font-family: 'Archivo Black', sans-serif;
+      font-weight: 400;
+      font-size: 2.6rem;
+      color: rgba(140, 160, 220, 0.22);
+      line-height: 1;
+    }
+    .xp-date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      color: var(--cyan);
+      margin-bottom: 0.9rem;
+    }
+    .xp-title {
+      font-family: 'Archivo Black', sans-serif;
+      font-weight: 400;
+      font-size: clamp(1.1rem, 2vw, 1.45rem);
+      color: var(--ink);
+      line-height: 1.25;
+      margin-bottom: 0.3rem;
+      max-width: 20ch;
+    }
+    .xp-org { font-size: 0.92rem; color: var(--body); margin-bottom: 1.2rem; }
+    .xp-list { list-style: none; }
+    .xp-list li {
+      font-size: 0.88rem;
+      color: var(--body);
+      padding: 0.45rem 0 0.45rem 1.3rem;
+      border-top: 1px dashed rgba(140, 160, 220, 0.12);
+      position: relative;
+    }
+    .xp-list li::before {
+      content: '>';
+      position: absolute; left: 0;
+      color: var(--violet);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .xp-hint {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      color: var(--dim);
+      padding-left: clamp(1.4rem, 5vw, 4rem);
+    }
+    @media (max-width: 768px) {
+      .xp-stage { min-height: 0; display: block; }
+      .xp-track { flex-direction: column; width: auto; padding-top: 2rem; }
+      .xp-card { width: 100%; }
+      .xp-hint { display: none; }
+    }
+
+    /* -- formação -- */
+    .edu-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: clamp(2.5rem, 6vw, 6rem);
+    }
+    @media (max-width: 860px) { .edu-grid { grid-template-columns: 1fr; } }
+    .edu-item {
+      padding: 1.4rem 0;
+      border-top: 1px solid var(--line);
+    }
+    .edu-item:last-child { border-bottom: 1px solid var(--line); }
+    .edu-date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--violet);
+    }
+    .edu-title {
+      font-weight: 600;
+      color: var(--ink);
+      font-size: 1.05rem;
+      margin: 0.3rem 0 0.15rem;
+    }
+    .edu-org { font-size: 0.88rem; color: var(--dim); }
+    .courses h3 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 1.2rem;
+    }
+    .course-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      padding: 0.75rem 0;
+      border-top: 1px dashed rgba(140, 160, 220, 0.14);
+      font-size: 0.92rem;
+    }
+    .course-row .c-name { color: var(--ink); }
+    .course-row .c-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    /* -- habilidades -- */
+    .skill-row {
+      border-top: 1px solid var(--line);
+      padding: clamp(1.4rem, 3vh, 2.2rem) 0;
+      display: grid;
+      grid-template-columns: 3.2rem 1fr;
+      gap: 0.4rem 1.5rem;
+      align-items: baseline;
+      position: relative;
+      transition: padding-left 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .skill-row:last-of-type { border-bottom: 1px solid var(--line); }
+    .skill-row:hover { padding-left: 1rem; }
+    .skill-idx {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--dim);
+    }
+    .skill-domain {
+      font-family: 'Archivo Black', sans-serif;
+      font-weight: 400;
+      font-size: clamp(1.15rem, 2.6vw, 1.9rem);
+      color: var(--ink);
+      transition: color 0.3s;
+    }
+    .skill-row:hover .skill-domain { color: var(--cyan); }
+    .skill-items {
+      grid-column: 2;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--body);
+      letter-spacing: 0.04em;
+    }
+    .skill-items i { font-style: normal; color: var(--violet); margin: 0 0.55rem; }
+
+    /* -- contato -- */
+    #contato h2 { max-width: 14ch; }
+    .contact-list { border-top: 1px solid var(--line); }
+    .contact-link {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.5rem;
+      padding: clamp(1.5rem, 3.4vh, 2.4rem) 0.4rem;
+      border-bottom: 1px solid var(--line);
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .contact-link i {
+      position: absolute; inset: 0;
+      background: rgba(62, 230, 255, 0.06);
+      transform: scaleY(0);
+      transform-origin: bottom;
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .contact-link:hover i, .contact-link:focus-visible i { transform: scaleY(1); }
+    .contact-kind {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--dim);
+      width: 7.5rem;
+      flex-shrink: 0;
+    }
+    .contact-val {
+      font-family: 'Archivo Black', sans-serif;
+      font-weight: 400;
+      font-size: clamp(0.95rem, 2.8vw, 1.7rem);
+      color: var(--ink);
+      flex: 1;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      transition: color 0.3s;
+    }
+    .contact-link:hover .contact-val { color: var(--cyan); }
+    .contact-arrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.3rem;
+      color: var(--violet);
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .contact-link:hover .contact-arrow { transform: translate(6px, -6px); }
+    @media (max-width: 600px) {
+      .contact-kind { width: auto; }
+      .contact-link { flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+    }
+
+    footer {
+      padding: 3.5rem 0 5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    footer b { color: var(--cyan); font-weight: 400; }
+
+    /* ============ cursor ============ */
+    .cursor-dot, .cursor-ring {
+      position: fixed;
+      top: 0; left: 0;
+      z-index: var(--z-cursor);
+      pointer-events: none;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .cursor-dot {
+      width: 6px; height: 6px;
+      background: var(--cyan);
+    }
+    .cursor-ring {
+      width: 34px; height: 34px;
+      border: 1px solid rgba(62, 230, 255, 0.5);
+      transition: width 0.25s, height 0.25s, border-color 0.25s;
+    }
+    body.link-hover .cursor-ring {
+      width: 56px; height: 56px;
+      border-color: rgba(139, 123, 255, 0.8);
+    }
+    @media (hover: none), (pointer: coarse) {
+      .cursor-dot, .cursor-ring { display: none; }
+    }
+
+    /* ============ reduced motion ============ */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .marquee-track { animation: none; }
+      .sys::after { animation: none; }
+      .cursor-dot, .cursor-ring { display: none; }
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- preloader -->
+  <div id="loader" aria-hidden="true">
+    <div class="loader-box">
+      <div class="loader-line">> iniciando gg://system <span class="ok">[ok]</span></div>
+      <div class="loader-line">> carregando módulos 3d <span class="ok">[ok]</span></div>
+      <div class="loader-line">> renderizando experiência <span class="ok">[ok]</span></div>
+      <div class="loader-pct">0%</div>
+      <div class="loader-bar"><i></i></div>
+    </div>
+  </div>
+  <noscript><style>#loader { display: none; }</style></noscript>
+
+  <canvas id="scene"></canvas>
+  <div class="veil"></div>
+
+  <!-- HUD -->
+  <div class="hud" aria-hidden="true">
+    <span class="hud-corner tl"></span><span class="hud-corner tr"></span>
+    <span class="hud-corner bl"></span><span class="hud-corner br"></span>
+    <div class="hud-readout">
+      <span>scroll <b id="hud-pct">000</b>%</span>
+      <span>seção <b id="hud-sec">hero</b></span>
+    </div>
+    <div class="hud-sig">taubaté — sp · 2026</div>
+  </div>
+
+  <!-- nav -->
+  <header class="nav">
+    <a class="nav-logo" href="#top">GG<em>//</em></a>
+    <nav class="nav-links">
+      <a href="#sobre">sobre</a>
+      <a href="#experiencia">experiência</a>
+      <a href="#formacao">formação</a>
+      <a href="#habilidades">habilidades</a>
+      <a href="#contato">contato</a>
+    </nav>
+  </header>
+
+  <!-- rail -->
+  <nav class="rail" aria-label="Progresso">
+    <a href="#top" data-sec="hero" aria-label="Início"></a>
+    <a href="#sobre" data-sec="sobre" aria-label="Sobre"></a>
+    <a href="#experiencia" data-sec="experiência" aria-label="Experiência"></a>
+    <a href="#formacao" data-sec="formação" aria-label="Formação"></a>
+    <a href="#habilidades" data-sec="habilidades" aria-label="Habilidades"></a>
+    <a href="#contato" data-sec="contato" aria-label="Contato"></a>
+  </nav>
+
+  <main class="content" id="top">
+
+    <!-- HERO -->
+    <section class="hero" data-panel="hero" data-shape="0">
+      <div class="wrap">
+        <p class="sys">gg://system_online</p>
+        <h1 class="hero-name">
+          <span class="row" data-split>Gabriel</span>
+          <span class="row" data-split>Goldner</span>
+        </h1>
+        <p class="hero-role">Técnico em Informática — <strong>suporte, redes e manutenção</strong>, com base em desenvolvimento web e design.</p>
+        <a class="hero-cta" href="#contato"><i></i>iniciar contato →</a>
+      </div>
+      <div class="marquee" aria-hidden="true">
+        <div class="marquee-track">
+          <span>Suporte Técnico <b>·</b> Redes &amp; Cabeamento <b>·</b> Manutenção de Hardware <b>·</b> Windows Server <b>·</b> Desenvolvimento Web <b>·</b> Design Gráfico <b>·</b></span>
+          <span>Suporte Técnico <b>·</b> Redes &amp; Cabeamento <b>·</b> Manutenção de Hardware <b>·</b> Windows Server <b>·</b> Desenvolvimento Web <b>·</b> Design Gráfico <b>·</b></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SOBRE -->
+    <section id="sobre" data-panel="sobre" data-shape="1">
+      <div class="wrap">
+        <p class="sys">gg://sobre</p>
+        <p class="statement" data-words>
+          Eu mantenho <em>máquinas, redes e pessoas</em> funcionando — do hardware ao código, do cabo crimpado à interface na tela.
+        </p>
+        <div class="about-meta">
+          <div class="meta-item">
+            <div class="n"><span data-count="4">0</span><s>+</s></div>
+            <div class="l">anos de experiência</div>
+          </div>
+          <div class="meta-item">
+            <div class="n"><span data-count="8">0</span><s>+</s></div>
+            <div class="l">certificações</div>
+          </div>
+          <div class="meta-item">
+            <div class="n"><span data-count="3">0</span></div>
+            <div class="l">empresas atendidas</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPERIÊNCIA -->
+    <section id="experiencia" data-panel="experiência" data-shape="2">
+      <div class="wrap xp-head">
+        <p class="sys">gg://experiência</p>
+        <h2>Onde o sistema<br>já rodou</h2>
+      </div>
+      <div class="xp-stage">
+      <p class="xp-hint">[ role para navegar → ]</p>
+      <div class="xp-track">
+        <article class="xp-card" data-idx="01">
+          <p class="xp-date">2026 — atualmente</p>
+          <h3 class="xp-title">Técnico de Informática</h3>
+          <p class="xp-org">HMUT — Hospital Municipal Universitário de Taubaté</p>
+          <ul class="xp-list">
+            <li>Manutenção geral de computadores e formatação</li>
+            <li>Suporte direto a usuários do hospital</li>
+            <li>Manutenção de impressoras</li>
+            <li>Configuração de redes e crimpagem</li>
+            <li>Relatórios e cronogramas em Word e Excel</li>
+          </ul>
+        </article>
+        <article class="xp-card" data-idx="02">
+          <p class="xp-date">2025 — 2026</p>
+          <h3 class="xp-title">Técnico de Informática</h3>
+          <p class="xp-org">UPA San Marino &amp; UPA Santa Helena</p>
+          <ul class="xp-list">
+            <li>Suporte técnico em unidades de pronto atendimento</li>
+            <li>Manutenção de equipamentos</li>
+            <li>Atendimento e orientação a usuários</li>
+          </ul>
+        </article>
+        <article class="xp-card" data-idx="03">
+          <p class="xp-date">2024 — 2025</p>
+          <h3 class="xp-title">Professor de Informática e Design</h3>
+          <p class="xp-org">Advanced — Graphic Computing and Arts</p>
+          <ul class="xp-list">
+            <li>Ensino de AutoCAD e SketchUp</li>
+            <li>Premiere Pro, After Effects e Photoshop</li>
+            <li>Pacote Office completo</li>
+          </ul>
+        </article>
+      </div>
+      </div>
+    </section>
+
+    <!-- FORMAÇÃO -->
+    <section id="formacao" data-panel="formação" data-shape="3">
+      <div class="wrap">
+        <p class="sys">gg://formação</p>
+        <h2>Base instalada</h2>
+        <div class="edu-grid">
+          <div class="edu-col">
+            <div class="edu-item">
+              <p class="edu-date">2022 — 2024</p>
+              <p class="edu-title">Técnico em Desenvolvimento de Sistemas</p>
+              <p class="edu-org">ETEC Dr. Geraldo José Rodrigues Alckmin</p>
+            </div>
+            <div class="edu-item">
+              <p class="edu-date">2022 — 2024</p>
+              <p class="edu-title">Ensino Médio — Mtec Desenvolvimento de Sistemas AMS</p>
+              <p class="edu-org">ETEC Dr. Geraldo José Rodrigues Alckmin</p>
+            </div>
+            <div class="edu-item">
+              <p class="edu-date">2018 — 2021</p>
+              <p class="edu-title">Ensino Fundamental II</p>
+              <p class="edu-org">EMEFM Professor José Ezequiel de Souza</p>
+            </div>
+          </div>
+          <div class="courses">
+            <h3>// cursos complementares</h3>
+            <div class="course-row"><span class="c-name">CCNA 1</span><span class="c-meta">SENAC · 2024</span></div>
+            <div class="course-row"><span class="c-name">Windows Server</span><span class="c-meta">SENAC · 2024</span></div>
+            <div class="course-row"><span class="c-name">Montagem e Manutenção de Computadores</span><span class="c-meta">SENAC · 2025</span></div>
+            <div class="course-row"><span class="c-name">Desenvolvimento de Sistemas</span><span class="c-meta">ETEC · 2022–24</span></div>
+            <div class="course-row"><span class="c-name">Pacote Office</span><span class="c-meta">Advanced · 2018–21</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HABILIDADES -->
+    <section id="habilidades" data-panel="habilidades" data-shape="3">
+      <div class="wrap">
+        <p class="sys">gg://habilidades</p>
+        <h2>Stack de campo</h2>
+        <div class="skill-row">
+          <span class="skill-idx">a·</span>
+          <span class="skill-domain">Infra &amp; Suporte</span>
+          <span class="skill-items">montagem<i>/</i>manutenção<i>/</i>formatação<i>/</i>impressoras<i>/</i>suporte a usuários</span>
+        </div>
+        <div class="skill-row">
+          <span class="skill-idx">b·</span>
+          <span class="skill-domain">Redes</span>
+          <span class="skill-items">cabeamento<i>/</i>crimpagem<i>/</i>windows server<i>/</i>ccna 1</span>
+        </div>
+        <div class="skill-row">
+          <span class="skill-idx">c·</span>
+          <span class="skill-domain">Web &amp; Dados</span>
+          <span class="skill-items">html<i>/</i>css<i>/</i>javascript<i>/</i>banco de dados</span>
+        </div>
+        <div class="skill-row">
+          <span class="skill-idx">d·</span>
+          <span class="skill-domain">Design &amp; CAD</span>
+          <span class="skill-items">photoshop<i>/</i>premiere<i>/</i>after effects<i>/</i>autocad<i>/</i>sketchup</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTATO -->
+    <section id="contato" data-panel="contato" data-shape="4">
+      <div class="wrap">
+        <p class="sys">gg://contato</p>
+        <h2>Vamos colocar algo no ar?</h2>
+        <div class="contact-list">
+          <a class="contact-link" href="https://wa.me/5512991537985" target="_blank" rel="noopener">
+            <i></i>
+            <span class="contact-kind">whatsapp</span>
+            <span class="contact-val">(12) 99153-7985</span>
+            <span class="contact-arrow">↗</span>
+          </a>
+          <a class="contact-link" href="mailto:gabrielgoldner10@gmail.com">
+            <i></i>
+            <span class="contact-kind">e-mail</span>
+            <span class="contact-val">gabrielgoldner10@gmail.com</span>
+            <span class="contact-arrow">↗</span>
+          </a>
+          <a class="contact-link" href="https://www.linkedin.com/in/gabriel-de-almeida-goldner-9347b2377/" target="_blank" rel="noopener">
+            <i></i>
+            <span class="contact-kind">linkedin</span>
+            <span class="contact-val">Gabriel de Almeida Goldner</span>
+            <span class="contact-arrow">↗</span>
+          </a>
+        </div>
+        <footer>
+          <span>© 2026 gabriel goldner</span>
+          <span>projetado &amp; codado <b>gg://system v2.0</b></span>
+        </footer>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- cursor -->
+  <div class="cursor-dot" aria-hidden="true"></div>
+  <div class="cursor-ring" aria-hidden="true"></div>
+
+  <script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://unpkg.com/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  </script>
+
+  <!-- ================= THREE.JS: objeto morfável ================= -->
+  <script type="module">
+    import * as THREE from 'three';
+
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isMobile = matchMedia('(max-width: 768px)').matches;
+
+    const canvas = document.getElementById('scene');
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x05060c, 0.012);
+    const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200);
+    camera.position.z = 34;
+
+    // ---------- geração das formas (mesmo nº de pontos) ----------
+    const N = isMobile ? 3200 : 6500;
+
+    function sphere() { // hero: núcleo
+      const a = new Float32Array(N * 3);
+      const phi = Math.PI * (3 - Math.sqrt(5));
+      for (let i = 0; i < N; i++) {
+        const y = 1 - (i / (N - 1)) * 2;
+        const r = Math.sqrt(1 - y * y);
+        const t = phi * i;
+        a[i*3] = Math.cos(t) * r * 10;
+        a[i*3+1] = y * 10;
+        a[i*3+2] = Math.sin(t) * r * 10;
+      }
+      return a;
+    }
+    function torusKnot() { // sobre: complexidade dominada
+      const a = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) {
+        const t = (i / N) * Math.PI * 2;
+        const p = 2, q = 3;
+        const r = 5.2 + 1.9 * Math.cos(q * t);
+        const jitter = () => (Math.random() - 0.5) * 0.9;
+        a[i*3] = r * Math.cos(p * t) + jitter();
+        a[i*3+1] = r * Math.sin(p * t) + jitter();
+        a[i*3+2] = 1.9 * Math.sin(q * t) + jitter();
+      }
+      return a;
+    }
+    function helix() { // experiência: trajetória no tempo
+      const a = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) {
+        const s = i % 2 === 0 ? 1 : -1;
+        const t = (i / N) * Math.PI * 6;
+        const jitter = () => (Math.random() - 0.5) * 0.55;
+        a[i*3] = Math.cos(t) * 4.5 * s + jitter();
+        a[i*3+1] = (i / N) * 22 - 11 + jitter();
+        a[i*3+2] = Math.sin(t) * 4.5 * s + jitter();
+      }
+      return a;
+    }
+    function grid() { // formação/habilidades: estrutura
+      const a = new Float32Array(N * 3);
+      const side = Math.ceil(Math.sqrt(N));
+      for (let i = 0; i < N; i++) {
+        const x = (i % side) / side - 0.5;
+        const z = Math.floor(i / side) / side - 0.5;
+        a[i*3] = x * 26;
+        a[i*3+1] = Math.sin(x * 9) * Math.cos(z * 9) * 2.2;
+        a[i*3+2] = z * 26;
+      }
+      return a;
+    }
+    function portal() { // contato: anel/portal
+      const a = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) {
+        const t = (i / N) * Math.PI * 2 * 40;
+        const R = 8.5, tube = 1.6;
+        const u = Math.random() * Math.PI * 2;
+        a[i*3] = (R + tube * Math.cos(u)) * Math.cos(t);
+        a[i*3+1] = (R + tube * Math.cos(u)) * Math.sin(t);
+        a[i*3+2] = tube * Math.sin(u);
+      }
+      return a;
+    }
+
+    const shapes = [sphere(), torusKnot(), helix(), grid(), portal()];
+    const shapeColors = [
+      new THREE.Color(0x3ee6ff), // cyan
+      new THREE.Color(0x8b7bff), // violeta
+      new THREE.Color(0x5fd4ff),
+      new THREE.Color(0x9d8bff),
+      new THREE.Color(0x3ee6ff),
+    ];
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(shapes[0].slice(), 3));
+    const mat = new THREE.PointsMaterial({
+      size: isMobile ? 0.09 : 0.07,
+      color: shapeColors[0].clone(),
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    const cloud = new THREE.Points(geo, mat);
+    scene.add(cloud);
+
+    // estrelas de fundo
+    const starN = 900;
+    const starPos = new Float32Array(starN * 3);
+    for (let i = 0; i < starN * 3; i++) starPos[i] = (Math.random() - 0.5) * 160;
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+      size: 0.14, color: 0x66719b, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    scene.add(stars);
+
+    // ---------- estado do morph ----------
+    const state = { t: 0, x: isMobile ? 0 : 9, scale: 1, opacity: 0.85 };
+    window.__morph = state; // ponte para o script GSAP
+    window.__shapeColors = shapeColors;
+    window.__cloudMat = mat;
+
+    const pos = geo.attributes.position.array;
+    function applyMorph() {
+      const t = Math.max(0, Math.min(shapes.length - 1, state.t));
+      const i0 = Math.floor(t);
+      const i1 = Math.min(i0 + 1, shapes.length - 1);
+      const f = t - i0;
+      const A = shapes[i0], B = shapes[i1];
+      // ponytail: lerp CPU em ~6.5k pontos; migrar p/ shader se precisar de mais pontos
+      for (let i = 0; i < pos.length; i++) pos[i] = A[i] + (B[i] - A[i]) * f;
+      geo.attributes.position.needsUpdate = true;
+    }
+    applyMorph();
+
+    // ---------- mouse parallax ----------
+    let mx = 0, my = 0;
+    addEventListener('mousemove', e => {
+      mx = (e.clientX / innerWidth - 0.5) * 2;
+      my = (e.clientY / innerHeight - 0.5) * 2;
+    }, { passive: true });
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      if (reduceMotion) renderOnce();
+    });
+
+    // ---------- loop ----------
+    let lastT = -1;
+    const clock = new THREE.Clock();
+    let running = true;
+    document.addEventListener('visibilitychange', () => { running = !document.hidden; });
+
+    function renderOnce() {
+      applyMorph();
+      cloud.position.x = state.x;
+      renderer.render(scene, camera);
+    }
+
+    if (reduceMotion) {
+      // estático: uma forma por seção, sem rotação
+      renderOnce();
+      window.__renderOnce = renderOnce;
+    } else {
+      (function loop() {
+        requestAnimationFrame(loop);
+        if (!running) return;
+        const el = clock.getElapsedTime();
+        if (state.t !== lastT) { applyMorph(); lastT = state.t; }
+        cloud.rotation.y = el * 0.12;
+        cloud.rotation.x = Math.sin(el * 0.18) * 0.22 + my * 0.12;
+        cloud.rotation.z = mx * 0.06;
+        cloud.position.x += (state.x - cloud.position.x) * 0.05;
+        cloud.scale.setScalar(state.scale);
+        mat.opacity = state.opacity;
+        stars.rotation.y = el * 0.008;
+        camera.position.x += (mx * 1.6 - camera.position.x) * 0.04;
+        camera.position.y += (-my * 1.2 - camera.position.y) * 0.04;
+        camera.lookAt(0, 0, 0);
+        renderer.render(scene, camera);
+      })();
+    }
+  </script>
+
+  <!-- ================= GSAP: coreografia ================= -->
+  <script>
+    gsap.registerPlugin(ScrollTrigger);
+    const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const MOBILE = matchMedia('(max-width: 768px)').matches;
+
+    /* ---------- smooth scroll ---------- */
+    let lenis = null;
+    if (!RM && typeof Lenis !== 'undefined') {
+      lenis = new Lenis({ lerp: 0.09 });
+      lenis.on('scroll', ScrollTrigger.update);
+      gsap.ticker.add(t => lenis.raf(t * 1000));
+      gsap.ticker.lagSmoothing(0);
+    }
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (!target) return;
+        e.preventDefault();
+        if (lenis) lenis.scrollTo(target, { offset: 0 });
+        else target.scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
+      });
+    });
+
+    /* ---------- preloader ---------- */
+    const loader = document.getElementById('loader');
+    if (RM) {
+      loader.remove();
+    } else {
+      const pct = { v: 0 };
+      const boot = gsap.timeline({ onComplete: () => loader.remove() });
+      boot
+        .to('.loader-line', { opacity: 1, stagger: 0.28, duration: 0.05 })
+        .to(pct, {
+          v: 100, duration: 1.4, ease: 'power2.inOut',
+          onUpdate: () => document.querySelector('.loader-pct').textContent = Math.round(pct.v) + '%',
+        }, 0)
+        .to('.loader-bar i', { scaleX: 1, duration: 1.4, ease: 'power2.inOut' }, 0)
+        .to('#loader', { yPercent: -100, duration: 0.7, ease: 'power4.inOut', delay: 0.15 });
+    }
+
+    /* ---------- hero: split de caracteres ---------- */
+    document.querySelectorAll('[data-split]').forEach(row => {
+      row.innerHTML = row.textContent.trim().split('').map(c =>
+        `<span class="ch">${c === ' ' ? '&nbsp;' : c}</span>`).join('');
+    });
+    if (!RM) {
+      const intro = gsap.timeline({ delay: 2.1 });
+      intro
+        .from('.hero-name .ch', {
+          yPercent: 110, duration: 0.9, stagger: 0.045, ease: 'power4.out',
+        })
+        .from('.hero .sys, .hero-role, .hero-cta', {
+          opacity: 0, y: 24, duration: 0.7, stagger: 0.12, ease: 'power3.out',
+        }, '-=0.5')
+        .from('.marquee, .nav, .rail, .hud', {
+          opacity: 0, duration: 0.8, ease: 'power2.out',
+        }, '-=0.4');
+    }
+
+    /* ---------- morph 3D por seção ---------- */
+    const xPerShape = MOBILE ? [0, 0, 0, 0, 0] : [9, -9, 0, 8, 0];
+    const scalePerShape = [1, 0.9, 1.15, 1, 0.95];
+    const opacityPerShape = [0.85, 0.8, 0.45, 0.5, 0.85];
+
+    document.querySelectorAll('[data-panel]').forEach(sec => {
+      const shape = +sec.dataset.shape;
+      const name = sec.dataset.panel;
+      ScrollTrigger.create({
+        trigger: sec,
+        start: 'top 55%',
+        end: 'bottom 55%',
+        onToggle(self) {
+          if (!self.isActive) return;
+          document.getElementById('hud-sec').textContent = name;
+          document.querySelectorAll('.rail a').forEach(a =>
+            a.classList.toggle('on', a.dataset.sec === name));
+          const m = window.__morph;
+          if (!m) return;
+          if (RM) {
+            m.t = shape; m.x = 0; m.scale = 1;
+            window.__cloudMat.color.copy(window.__shapeColors[shape]);
+            window.__renderOnce && window.__renderOnce();
+          } else {
+            gsap.to(m, {
+              t: shape, x: xPerShape[shape], scale: scalePerShape[shape],
+              opacity: opacityPerShape[shape],
+              duration: 1.6, ease: 'power3.inOut', overwrite: 'auto',
+            });
+            gsap.to(window.__cloudMat.color, {
+              r: window.__shapeColors[shape].r,
+              g: window.__shapeColors[shape].g,
+              b: window.__shapeColors[shape].b,
+              duration: 1.6, ease: 'power2.inOut', overwrite: 'auto',
+            });
+          }
+        },
+      });
+    });
+
+    /* ---------- HUD scroll % ---------- */
+    ScrollTrigger.create({
+      start: 0, end: () => document.documentElement.scrollHeight - innerHeight,
+      onUpdate(self) {
+        document.getElementById('hud-pct').textContent =
+          String(Math.round(self.progress * 100)).padStart(3, '0');
+      },
+    });
+
+    /* ---------- sobre: palavras acendem no scroll ---------- */
+    const st = document.querySelector('[data-words]');
+    st.innerHTML = st.innerHTML.trim().split(/(\s+)/).map(w =>
+      /^\s+$/.test(w) ? ' ' : `<span class="w">${w}</span>`).join('');
+    if (!RM) {
+      gsap.to('.statement .w', {
+        opacity: 1, stagger: 0.06, ease: 'none',
+        scrollTrigger: { trigger: '.statement', start: 'top 78%', end: 'top 30%', scrub: true },
+      });
+    } else {
+      gsap.set('.statement .w', { opacity: 1 });
+    }
+
+    /* ---------- contadores ---------- */
+    document.querySelectorAll('[data-count]').forEach(el => {
+      const target = +el.dataset.count;
+      if (RM) { el.textContent = target; return; }
+      gsap.to(el, {
+        textContent: target, duration: 1.6, ease: 'power2.out', snap: { textContent: 1 },
+        scrollTrigger: { trigger: el, start: 'top 85%', once: true },
+      });
+    });
+
+    /* ---------- experiência: scroll horizontal (desktop) ---------- */
+    if (!RM && !MOBILE) {
+      const track = document.querySelector('.xp-track');
+      gsap.to(track, {
+        x: () => -(track.scrollWidth - innerWidth + 60),
+        ease: 'none',
+        scrollTrigger: {
+          trigger: '.xp-stage',
+          start: 'top top',
+          end: () => '+=' + (track.scrollWidth - innerWidth + 60),
+          pin: true,
+          scrub: 0.6,
+          invalidateOnRefresh: true,
+        },
+      });
+    }
+
+    /* ---------- reveals ---------- */
+    if (!RM) {
+      gsap.utils.toArray('#sobre .sys, #formacao .sys, #habilidades .sys, #contato .sys, #experiencia .sys, h2').forEach(el => {
+        gsap.from(el, {
+          opacity: 0, y: 26, duration: 0.8, ease: 'power3.out',
+          scrollTrigger: { trigger: el, start: 'top 86%', once: true },
+        });
+      });
+      gsap.from('.xp-card', {
+        opacity: 0, y: 40, duration: 0.8, stagger: 0.15, ease: 'power3.out',
+        scrollTrigger: { trigger: '.xp-track', start: 'top 85%', once: true },
+      });
+      gsap.utils.toArray('.edu-item, .course-row, .skill-row, .contact-link').forEach((el, i) => {
+        gsap.from(el, {
+          opacity: 0, y: 28, duration: 0.7, ease: 'power3.out',
+          scrollTrigger: { trigger: el, start: 'top 90%', once: true },
+        });
+      });
+    }
+
+    /* ---------- cursor ---------- */
+    if (!RM && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      const dot = document.querySelector('.cursor-dot');
+      const ring = document.querySelector('.cursor-ring');
+      let cx = -100, cy = -100, rx = -100, ry = -100;
+      addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; }, { passive: true });
+      gsap.ticker.add(() => {
+        rx += (cx - rx) * 0.16;
+        ry += (cy - ry) * 0.16;
+        dot.style.left = cx + 'px'; dot.style.top = cy + 'px';
+        ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+      });
+      document.querySelectorAll('a, button').forEach(el => {
+        el.addEventListener('mouseenter', () => document.body.classList.add('link-hover'));
+        el.addEventListener('mouseleave', () => document.body.classList.remove('link-hover'));
+      });
+    }
+  </script>
+
+</body>
+</html>
